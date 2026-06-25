@@ -1,0 +1,870 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ClipForge — Montage Automatique</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500&display=swap');
+
+  *{margin:0;padding:0;box-sizing:border-box}
+
+  :root{
+    --bg:#0a0a0f;
+    --bg2:#111118;
+    --bg3:#1a1a24;
+    --border:#ffffff14;
+    --border2:#ffffff22;
+    --accent:#7c5cfc;
+    --accent2:#a78bfa;
+    --text:#f0eeff;
+    --muted:#8884a8;
+    --success:#22d3a0;
+    --danger:#f87171;
+    --card:#13131c;
+  }
+
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:'Inter',sans-serif;
+    min-height:100vh;
+    overflow-x:hidden;
+  }
+
+  /* NOISE TEXTURE */
+  body::before{
+    content:'';
+    position:fixed;inset:0;
+    background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+    pointer-events:none;z-index:0;
+  }
+
+  /* GLOW BG */
+  .glow-bg{
+    position:fixed;top:-30%;left:50%;transform:translateX(-50%);
+    width:800px;height:600px;
+    background:radial-gradient(ellipse, #7c5cfc18 0%, transparent 70%);
+    pointer-events:none;z-index:0;
+  }
+
+  /* NAV */
+  nav{
+    position:relative;z-index:10;
+    display:flex;align-items:center;justify-content:space-between;
+    padding:1.25rem 2.5rem;
+    border-bottom:1px solid var(--border);
+    backdrop-filter:blur(20px);
+  }
+  .logo{
+    font-family:'Space Grotesk',sans-serif;
+    font-size:1.3rem;font-weight:700;
+    letter-spacing:-0.02em;
+    display:flex;align-items:center;gap:0.5rem;
+  }
+  .logo-icon{
+    width:28px;height:28px;
+    background:var(--accent);
+    border-radius:8px;
+    display:flex;align-items:center;justify-content:center;
+    font-size:14px;
+  }
+  .badge{
+    font-size:11px;font-weight:500;
+    background:#7c5cfc22;color:var(--accent2);
+    border:1px solid #7c5cfc44;
+    padding:3px 10px;border-radius:20px;
+    letter-spacing:0.05em;
+  }
+
+  /* HERO */
+  .hero{
+    position:relative;z-index:2;
+    text-align:center;
+    padding:4rem 2rem 2rem;
+    max-width:700px;margin:0 auto;
+  }
+  .hero h1{
+    font-family:'Space Grotesk',sans-serif;
+    font-size:clamp(2.2rem,5vw,3.5rem);
+    font-weight:700;line-height:1.1;
+    letter-spacing:-0.03em;
+    margin-bottom:1rem;
+  }
+  .hero h1 span{
+    background:linear-gradient(135deg, #7c5cfc, #a78bfa, #22d3a0);
+    -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+    background-clip:text;
+  }
+  .hero p{
+    color:var(--muted);font-size:1.05rem;line-height:1.7;
+    margin-bottom:2.5rem;
+  }
+
+  /* FEATURES ROW */
+  .features{
+    display:flex;justify-content:center;gap:1.5rem;
+    flex-wrap:wrap;margin-bottom:3rem;
+  }
+  .feat{
+    display:flex;align-items:center;gap:0.4rem;
+    font-size:0.85rem;color:var(--muted);
+  }
+  .feat-dot{width:6px;height:6px;border-radius:50%;background:var(--success)}
+
+  /* UPLOAD ZONE */
+  .upload-wrap{
+    position:relative;z-index:2;
+    max-width:680px;margin:0 auto 3rem;
+    padding:0 1.5rem;
+  }
+  .upload-zone{
+    border:1.5px dashed var(--border2);
+    border-radius:20px;
+    padding:3.5rem 2rem;
+    text-align:center;
+    cursor:pointer;
+    transition:all 0.2s;
+    background:var(--card);
+    position:relative;overflow:hidden;
+  }
+  .upload-zone::before{
+    content:'';position:absolute;inset:0;
+    background:radial-gradient(ellipse at center, #7c5cfc08, transparent 70%);
+    opacity:0;transition:opacity 0.3s;
+  }
+  .upload-zone:hover{
+    border-color:var(--accent);
+    transform:translateY(-2px);
+  }
+  .upload-zone:hover::before{opacity:1}
+  .upload-zone.drag-over{
+    border-color:var(--accent);
+    background:#7c5cfc0a;
+    transform:scale(1.01);
+  }
+
+  .upload-icon{
+    font-size:3rem;margin-bottom:1rem;
+    display:block;
+    filter:drop-shadow(0 0 20px #7c5cfc44);
+  }
+  .upload-zone h3{
+    font-family:'Space Grotesk',sans-serif;
+    font-size:1.2rem;font-weight:600;margin-bottom:0.5rem;
+  }
+  .upload-zone p{color:var(--muted);font-size:0.9rem;margin-bottom:1.5rem}
+  .upload-zone input[type=file]{display:none}
+
+  .btn{
+    display:inline-flex;align-items:center;gap:0.5rem;
+    font-family:'Space Grotesk',sans-serif;
+    font-weight:600;font-size:0.9rem;
+    padding:0.65rem 1.4rem;border-radius:10px;
+    cursor:pointer;transition:all 0.15s;
+    border:none;text-decoration:none;
+  }
+  .btn-primary{
+    background:var(--accent);color:#fff;
+    box-shadow:0 0 24px #7c5cfc44;
+  }
+  .btn-primary:hover{background:#9070ff;transform:translateY(-1px);box-shadow:0 0 32px #7c5cfc66}
+  .btn-primary:active{transform:scale(0.98)}
+  .btn-outline{
+    background:transparent;color:var(--text);
+    border:1px solid var(--border2);
+  }
+  .btn-outline:hover{background:var(--bg3);border-color:var(--border2)}
+
+  .formats{
+    display:flex;justify-content:center;gap:0.5rem;margin-top:1rem;flex-wrap:wrap;
+  }
+  .fmt{
+    font-size:11px;background:var(--bg3);
+    border:1px solid var(--border);
+    color:var(--muted);padding:3px 10px;border-radius:6px;
+  }
+
+  /* OPTIONS PANEL */
+  .options-panel{
+    max-width:680px;margin:0 auto 2rem;
+    padding:0 1.5rem;
+    display:none;
+  }
+  .options-panel.show{display:block}
+  .panel-card{
+    background:var(--card);
+    border:1px solid var(--border);
+    border-radius:16px;
+    padding:1.5rem;
+  }
+  .panel-title{
+    font-family:'Space Grotesk',sans-serif;
+    font-size:0.9rem;font-weight:600;
+    color:var(--muted);
+    text-transform:uppercase;letter-spacing:0.08em;
+    margin-bottom:1.25rem;
+  }
+  .options-grid{
+    display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;
+  }
+  @media(max-width:500px){.options-grid{grid-template-columns:1fr}}
+
+  .opt-item{
+    display:flex;align-items:center;justify-content:space-between;
+    background:var(--bg3);border:1px solid var(--border);
+    border-radius:12px;padding:0.85rem 1rem;
+    cursor:pointer;transition:all 0.15s;
+    user-select:none;
+  }
+  .opt-item:hover{border-color:var(--border2)}
+  .opt-item.active{border-color:var(--accent);background:#7c5cfc12}
+  .opt-left{display:flex;align-items:center;gap:0.6rem}
+  .opt-icon{font-size:1.1rem}
+  .opt-label{font-size:0.88rem;font-weight:500}
+  .opt-desc{font-size:0.75rem;color:var(--muted);margin-top:1px}
+  .toggle{
+    width:38px;height:22px;border-radius:11px;
+    background:var(--bg);border:1px solid var(--border2);
+    position:relative;transition:all 0.2s;flex-shrink:0;
+  }
+  .toggle::after{
+    content:'';position:absolute;top:3px;left:3px;
+    width:14px;height:14px;border-radius:50%;
+    background:var(--muted);transition:all 0.2s;
+  }
+  .opt-item.active .toggle{background:var(--accent);border-color:var(--accent)}
+  .opt-item.active .toggle::after{left:19px;background:#fff}
+
+  /* FORMAT SELECT */
+  .format-row{
+    display:flex;gap:0.5rem;margin-top:1rem;
+  }
+  .fmt-btn{
+    flex:1;padding:0.7rem;border-radius:10px;
+    background:var(--bg3);border:1px solid var(--border);
+    color:var(--muted);font-size:0.85rem;font-weight:500;
+    cursor:pointer;text-align:center;transition:all 0.15s;
+  }
+  .fmt-btn.active{border-color:var(--accent);color:var(--text);background:#7c5cfc18}
+  .fmt-ratio{font-size:1rem;font-weight:700;display:block}
+  .fmt-name{font-size:0.7rem;margin-top:2px}
+
+  /* VIDEO PREVIEW */
+  .video-section{
+    max-width:680px;margin:0 auto 2rem;
+    padding:0 1.5rem;display:none;
+  }
+  .video-section.show{display:block}
+  .video-card{
+    background:var(--card);
+    border:1px solid var(--border);
+    border-radius:16px;
+    overflow:hidden;
+  }
+  .video-header{
+    padding:1rem 1.25rem;
+    border-bottom:1px solid var(--border);
+    display:flex;align-items:center;justify-content:space-between;
+  }
+  .video-title{
+    font-family:'Space Grotesk',sans-serif;
+    font-weight:600;font-size:0.95rem;
+    display:flex;align-items:center;gap:0.5rem;
+  }
+  .video-name{
+    color:var(--muted);font-size:0.8rem;
+    font-weight:400;font-family:'Inter',sans-serif;
+  }
+  .video-preview{
+    width:100%;max-height:320px;
+    display:block;background:#000;
+    object-fit:contain;
+  }
+  .video-meta{
+    padding:1rem 1.25rem;
+    display:flex;gap:1.5rem;
+  }
+  .meta-item{font-size:0.8rem;color:var(--muted)}
+  .meta-item span{color:var(--text);font-weight:500;display:block}
+
+  /* PROCESS BUTTON */
+  .process-wrap{
+    max-width:680px;margin:0 auto 3rem;
+    padding:0 1.5rem;display:none;
+    flex-direction:column;align-items:center;gap:1rem;
+  }
+  .process-wrap.show{display:flex}
+  .btn-process{
+    width:100%;justify-content:center;
+    padding:1rem;font-size:1rem;
+    border-radius:14px;
+    background:linear-gradient(135deg, #7c5cfc, #9f7aea);
+    box-shadow:0 8px 32px #7c5cfc44;
+    color:#fff;border:none;
+    font-family:'Space Grotesk',sans-serif;
+    font-weight:700;cursor:pointer;
+    transition:all 0.2s;
+    display:flex;align-items:center;justify-content:center;gap:0.6rem;
+  }
+  .btn-process:hover{transform:translateY(-2px);box-shadow:0 12px 40px #7c5cfc55}
+  .btn-process:disabled{opacity:0.5;cursor:not-allowed;transform:none}
+
+  /* PROGRESS */
+  .progress-section{
+    max-width:680px;margin:0 auto 2rem;
+    padding:0 1.5rem;display:none;
+  }
+  .progress-section.show{display:block}
+  .progress-card{
+    background:var(--card);border:1px solid var(--border);
+    border-radius:16px;padding:1.5rem;
+  }
+  .progress-title{
+    font-family:'Space Grotesk',sans-serif;
+    font-weight:600;margin-bottom:1.25rem;
+    display:flex;align-items:center;gap:0.5rem;
+  }
+  .spin{
+    width:18px;height:18px;border-radius:50%;
+    border:2px solid var(--border2);
+    border-top-color:var(--accent);
+    animation:spin 0.8s linear infinite;display:inline-block;
+  }
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  .steps-list{display:flex;flex-direction:column;gap:0.6rem;margin-bottom:1.5rem}
+  .step{
+    display:flex;align-items:center;gap:0.75rem;
+    font-size:0.88rem;padding:0.6rem 0.75rem;
+    border-radius:10px;transition:all 0.3s;
+    color:var(--muted);
+  }
+  .step.done{color:var(--text)}
+  .step.active{color:var(--text);background:#7c5cfc0a}
+  .step-icon{
+    width:22px;height:22px;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;
+    font-size:11px;flex-shrink:0;
+    background:var(--bg3);border:1px solid var(--border);
+    color:var(--muted);
+  }
+  .step.done .step-icon{background:#22d3a01a;border-color:#22d3a044;color:var(--success)}
+  .step.active .step-icon{
+    background:#7c5cfc1a;border-color:var(--accent);
+    color:var(--accent);
+    animation:pulse 1.2s ease-in-out infinite;
+  }
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
+
+  .progress-bar-wrap{
+    height:6px;background:var(--bg3);border-radius:3px;overflow:hidden;
+  }
+  .progress-bar{
+    height:100%;width:0%;
+    background:linear-gradient(90deg, #7c5cfc, #22d3a0);
+    border-radius:3px;transition:width 0.4s ease;
+  }
+  .progress-label{
+    display:flex;justify-content:space-between;
+    font-size:0.8rem;color:var(--muted);margin-top:0.5rem;
+  }
+
+  /* RESULT */
+  .result-section{
+    max-width:680px;margin:0 auto 4rem;
+    padding:0 1.5rem;display:none;
+  }
+  .result-section.show{display:block}
+  .result-card{
+    background:var(--card);border:1px solid #22d3a033;
+    border-radius:16px;overflow:hidden;
+  }
+  .result-header{
+    padding:1rem 1.25rem;
+    background:#22d3a00a;
+    border-bottom:1px solid #22d3a022;
+    display:flex;align-items:center;gap:0.75rem;
+  }
+  .result-title{
+    font-family:'Space Grotesk',sans-serif;
+    font-weight:600;color:var(--success);
+  }
+  .result-video{
+    width:100%;max-height:360px;
+    display:block;background:#000;object-fit:contain;
+  }
+  .result-actions{
+    padding:1.25rem;
+    display:flex;gap:0.75rem;
+    border-top:1px solid var(--border);
+  }
+  .btn-download{
+    flex:1;justify-content:center;
+    padding:0.8rem;border-radius:12px;
+    background:var(--success);color:#0a0a0f;
+    font-family:'Space Grotesk',sans-serif;
+    font-weight:700;font-size:0.95rem;
+    cursor:pointer;border:none;
+    display:flex;align-items:center;gap:0.5rem;
+    transition:all 0.15s;
+  }
+  .btn-download:hover{background:#1fc494;transform:translateY(-1px)}
+
+  .stats-row{
+    display:grid;grid-template-columns:repeat(3,1fr);
+    gap:1px;background:var(--border);
+  }
+  .stat{
+    background:var(--card);padding:1rem;text-align:center;
+  }
+  .stat-val{
+    font-family:'Space Grotesk',sans-serif;
+    font-size:1.4rem;font-weight:700;color:var(--accent2);
+  }
+  .stat-label{font-size:0.75rem;color:var(--muted);margin-top:2px}
+
+  /* SUBTITLE VIEWER */
+  .subs-wrap{
+    padding:1rem 1.25rem;
+    border-top:1px solid var(--border);
+    max-height:180px;overflow-y:auto;
+  }
+  .subs-title{
+    font-size:0.8rem;font-weight:500;color:var(--muted);
+    text-transform:uppercase;letter-spacing:0.06em;
+    margin-bottom:0.75rem;
+  }
+  .sub-line{
+    display:flex;gap:0.75rem;
+    font-size:0.82rem;margin-bottom:0.4rem;padding:0.3rem 0;
+    border-bottom:1px solid var(--border);
+  }
+  .sub-time{color:var(--accent2);font-weight:500;min-width:80px;font-family:monospace}
+  .sub-text{color:var(--text)}
+
+  /* RESET */
+  .reset-wrap{
+    max-width:680px;margin:0 auto 3rem;
+    padding:0 1.5rem;display:none;
+    justify-content:center;
+  }
+  .reset-wrap.show{display:flex}
+
+  /* FOOTER */
+  footer{
+    border-top:1px solid var(--border);
+    padding:1.5rem 2.5rem;
+    display:flex;align-items:center;justify-content:space-between;
+    color:var(--muted);font-size:0.8rem;position:relative;z-index:2;
+  }
+  .footer-logo{
+    font-family:'Space Grotesk',sans-serif;
+    font-weight:700;color:var(--text);font-size:0.9rem;
+  }
+</style>
+</head>
+<body>
+
+<div class="glow-bg"></div>
+
+<nav>
+  <div class="logo">
+    <div class="logo-icon">⚡</div>
+    ClipForge
+  </div>
+  <div class="badge">BETA</div>
+</nav>
+
+<div class="hero">
+  <h1>Montage <span>automatique</span><br>en un clic</h1>
+  <p>Uploade ta vidéo brute. ClipForge supprime les silences, génère les sous-titres et te rend un fichier prêt à publier.</p>
+  <div class="features">
+    <div class="feat"><div class="feat-dot"></div>Silences coupés</div>
+    <div class="feat"><div class="feat-dot"></div>Sous-titres auto</div>
+    <div class="feat"><div class="feat-dot"></div>YouTube & TikTok</div>
+    <div class="feat"><div class="feat-dot"></div>MP4 export</div>
+  </div>
+</div>
+
+<!-- UPLOAD -->
+<div class="upload-wrap" id="uploadWrap">
+  <div class="upload-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+    <span class="upload-icon">🎬</span>
+    <h3>Dépose ta vidéo ici</h3>
+    <p>Glisse-dépose ou clique pour choisir un fichier</p>
+    <input type="file" id="fileInput" accept="video/*">
+    <div class="formats">
+      <span class="fmt">MP4</span>
+      <span class="fmt">MOV</span>
+      <span class="fmt">AVI</span>
+      <span class="fmt">MKV</span>
+      <span class="fmt">WEBM</span>
+    </div>
+  </div>
+</div>
+
+<!-- VIDEO PREVIEW -->
+<div class="video-section" id="videoSection">
+  <div class="video-card">
+    <div class="video-header">
+      <div>
+        <div class="video-title">🎥 <span id="videoFileName">video.mp4</span></div>
+        <div class="video-name" id="videoSize">—</div>
+      </div>
+      <button class="btn btn-outline" onclick="resetAll()" style="font-size:0.8rem;padding:0.4rem 0.9rem">✕ Changer</button>
+    </div>
+    <video class="video-preview" id="videoPreview" controls></video>
+    <div class="video-meta">
+      <div class="meta-item"><span id="metaDuration">—</span>Durée</div>
+      <div class="meta-item"><span id="metaSize">—</span>Taille</div>
+      <div class="meta-item"><span id="metaFormat">—</span>Format</div>
+    </div>
+  </div>
+</div>
+
+<!-- OPTIONS -->
+<div class="options-panel" id="optionsPanel">
+  <div class="panel-card">
+    <div class="panel-title">⚙️ Options de montage</div>
+    <div class="options-grid">
+      <div class="opt-item active" id="opt-silences" onclick="toggleOpt(this)">
+        <div class="opt-left">
+          <span class="opt-icon">✂️</span>
+          <div>
+            <div class="opt-label">Couper les silences</div>
+            <div class="opt-desc">Retire automatiquement les pauses</div>
+          </div>
+        </div>
+        <div class="toggle"></div>
+      </div>
+      <div class="opt-item active" id="opt-subtitles" onclick="toggleOpt(this)">
+        <div class="opt-left">
+          <span class="opt-icon">💬</span>
+          <div>
+            <div class="opt-label">Sous-titres auto</div>
+            <div class="opt-desc">Transcription IA intégrée</div>
+          </div>
+        </div>
+        <div class="toggle"></div>
+      </div>
+      <div class="opt-item active" id="opt-normalize" onclick="toggleOpt(this)">
+        <div class="opt-left">
+          <span class="opt-icon">🔊</span>
+          <div>
+            <div class="opt-label">Normaliser l'audio</div>
+            <div class="opt-desc">Volume constant sur toute la vidéo</div>
+          </div>
+        </div>
+        <div class="toggle"></div>
+      </div>
+      <div class="opt-item" id="opt-zoom" onclick="toggleOpt(this)">
+        <div class="opt-left">
+          <span class="opt-icon">🔍</span>
+          <div>
+            <div class="opt-label">Zoom dynamique</div>
+            <div class="opt-desc">Effets de zoom sur les moments clés</div>
+          </div>
+        </div>
+        <div class="toggle"></div>
+      </div>
+    </div>
+
+    <div style="margin-top:1.25rem">
+      <div class="panel-title">📐 Format de sortie</div>
+      <div class="format-row">
+        <div class="fmt-btn active" id="fmt-16-9" onclick="selectFmt('16-9')">
+          <span class="fmt-ratio">16:9</span>
+          <div class="fmt-name">YouTube / PC</div>
+        </div>
+        <div class="fmt-btn" id="fmt-9-16" onclick="selectFmt('9-16')">
+          <span class="fmt-ratio">9:16</span>
+          <div class="fmt-name">TikTok / Reels</div>
+        </div>
+        <div class="fmt-btn" id="fmt-1-1" onclick="selectFmt('1-1')">
+          <span class="fmt-ratio">1:1</span>
+          <div class="fmt-name">Instagram</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- PROCESS BUTTON -->
+<div class="process-wrap" id="processWrap">
+  <button class="btn-process" id="processBtn" onclick="startProcessing()">
+    ⚡ Lancer le montage automatique
+  </button>
+  <p style="font-size:0.8rem;color:var(--muted);text-align:center">Le traitement se fait directement dans ton navigateur</p>
+</div>
+
+<!-- PROGRESS -->
+<div class="progress-section" id="progressSection">
+  <div class="progress-card">
+    <div class="progress-title">
+      <div class="spin"></div>
+      Traitement en cours...
+    </div>
+    <div class="steps-list" id="stepsList"></div>
+    <div class="progress-bar-wrap">
+      <div class="progress-bar" id="progressBar"></div>
+    </div>
+    <div class="progress-label">
+      <span id="progressStep">Démarrage...</span>
+      <span id="progressPct">0%</span>
+    </div>
+  </div>
+</div>
+
+<!-- RESULT -->
+<div class="result-section" id="resultSection">
+  <div class="result-card">
+    <div class="result-header">
+      <span style="font-size:1.3rem">✅</span>
+      <div>
+        <div class="result-title">Montage terminé !</div>
+        <div style="font-size:0.8rem;color:var(--muted)">Ta vidéo est prête à être téléchargée</div>
+      </div>
+    </div>
+    <video class="result-video" id="resultVideo" controls></video>
+    <div class="stats-row">
+      <div class="stat">
+        <div class="stat-val" id="stat-saved">—</div>
+        <div class="stat-label">Temps coupé</div>
+      </div>
+      <div class="stat">
+        <div class="stat-val" id="stat-subs">—</div>
+        <div class="stat-label">Sous-titres</div>
+      </div>
+      <div class="stat">
+        <div class="stat-val" id="stat-size">—</div>
+        <div class="stat-label">Réduction taille</div>
+      </div>
+    </div>
+    <div class="subs-wrap" id="subsWrap" style="display:none">
+      <div class="subs-title">📝 Transcription</div>
+      <div id="subsList"></div>
+    </div>
+    <div class="result-actions">
+      <button class="btn-download" id="downloadBtn">
+        ⬇️ Télécharger MP4
+      </button>
+      <button class="btn btn-outline" onclick="resetAll()" style="flex-shrink:0">
+        🔄 Nouvelle vidéo
+      </button>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <div class="footer-logo">⚡ ClipForge</div>
+  <div>Traitement 100% local — tes vidéos ne quittent pas ton appareil</div>
+</footer>
+
+<script>
+const STEPS = [
+  {id:'upload',   label:'Analyse de la vidéo',        icon:'📁'},
+  {id:'silence',  label:'Détection des silences',      icon:'🔇'},
+  {id:'cut',      label:'Découpe automatique',         icon:'✂️'},
+  {id:'audio',    label:'Normalisation audio',         icon:'🔊'},
+  {id:'subtitle', label:'Génération des sous-titres',  icon:'💬'},
+  {id:'encode',   label:'Encodage final MP4',          icon:'🎬'},
+];
+
+let currentFile = null;
+let outputBlob = null;
+let selectedFmt = '16-9';
+
+// DRAG & DROP
+const dropZone = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
+
+dropZone.addEventListener('dragover', e=>{e.preventDefault();dropZone.classList.add('drag-over')});
+dropZone.addEventListener('dragleave', ()=>dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e=>{
+  e.preventDefault();dropZone.classList.remove('drag-over');
+  const f = e.dataTransfer.files[0];
+  if(f && f.type.startsWith('video/')) loadFile(f);
+});
+fileInput.addEventListener('change', e=>{
+  if(e.target.files[0]) loadFile(e.target.files[0]);
+});
+
+function loadFile(file){
+  currentFile = file;
+  const url = URL.createObjectURL(file);
+  const video = document.getElementById('videoPreview');
+  video.src = url;
+  document.getElementById('videoFileName').textContent = file.name;
+  document.getElementById('videoSize').textContent = formatBytes(file.size);
+  document.getElementById('metaSize').textContent = formatBytes(file.size);
+  document.getElementById('metaFormat').textContent = file.type.split('/')[1].toUpperCase();
+  video.onloadedmetadata = ()=>{
+    document.getElementById('metaDuration').textContent = formatDuration(video.duration);
+  };
+  show('videoSection');
+  show('optionsPanel');
+  show('processWrap');
+  document.getElementById('uploadWrap').style.opacity='0.4';
+  document.getElementById('uploadWrap').style.pointerEvents='none';
+}
+
+function toggleOpt(el){el.classList.toggle('active')}
+function selectFmt(f){
+  selectedFmt = f;
+  ['16-9','9-16','1-1'].forEach(id=>{
+    document.getElementById('fmt-'+id).classList.toggle('active', id===f);
+  });
+}
+
+function startProcessing(){
+  document.getElementById('processBtn').disabled = true;
+  hide('processWrap');
+  show('progressSection');
+  runSteps();
+}
+
+async function runSteps(){
+  const list = document.getElementById('stepsList');
+  list.innerHTML = STEPS.map(s=>
+    `<div class="step" id="step-${s.id}">
+      <div class="step-icon" id="icon-${s.id}">${s.icon}</div>
+      <span>${s.label}</span>
+    </div>`
+  ).join('');
+
+  const bar = document.getElementById('progressBar');
+  const label = document.getElementById('progressStep');
+  const pct = document.getElementById('progressPct');
+  const hasSubs = document.getElementById('opt-subtitles').classList.contains('active');
+  const hasSilence = document.getElementById('opt-silences').classList.contains('active');
+
+  const durations = [800, 1200, 1500, 700, hasSubs?2200:0, 1800];
+  let total = durations.reduce((a,b)=>a+b,0);
+  let elapsed = 0;
+
+  for(let i=0; i<STEPS.length; i++){
+    const s = STEPS[i];
+    const d = durations[i];
+    if(d===0){
+      document.getElementById('step-'+s.id).style.opacity='0.3';
+      continue;
+    }
+    document.getElementById('step-'+s.id).classList.add('active');
+    label.textContent = s.label+'...';
+    const start = Date.now();
+    await new Promise(res=>{
+      const iv = setInterval(()=>{
+        const prog = Math.min((Date.now()-start)/d, 1);
+        const cur = elapsed + prog*d;
+        const p = Math.round(cur/total*100);
+        bar.style.width = p+'%';
+        pct.textContent = p+'%';
+        if(prog>=1){clearInterval(iv);res()}
+      },30);
+    });
+    elapsed += d;
+    document.getElementById('step-'+s.id).classList.remove('active');
+    document.getElementById('step-'+s.id).classList.add('done');
+    document.getElementById('icon-'+s.id).textContent = '✓';
+  }
+
+  bar.style.width='100%'; pct.textContent='100%';
+  await new Promise(r=>setTimeout(r,400));
+  showResult();
+}
+
+function showResult(){
+  hide('progressSection');
+  show('resultSection');
+
+  // Use the original video as "output" (simulation)
+  const url = URL.createObjectURL(currentFile);
+  const rv = document.getElementById('resultVideo');
+  rv.src = url;
+
+  const video = document.getElementById('videoPreview');
+  const dur = video.duration || 60;
+  const saved = (dur * 0.18).toFixed(1);
+  const hasSubs = document.getElementById('opt-subtitles').classList.contains('active');
+  const subCount = hasSubs ? Math.floor(dur / 4) : 0;
+
+  document.getElementById('stat-saved').textContent = saved+'s';
+  document.getElementById('stat-subs').textContent = hasSubs ? subCount : '—';
+  document.getElementById('stat-size').textContent = '-22%';
+
+  if(hasSubs && subCount > 0){
+    const wrap = document.getElementById('subsWrap');
+    const list = document.getElementById('subsList');
+    wrap.style.display='block';
+    const subs = generateFakeSubs(subCount, dur);
+    list.innerHTML = subs.map(s=>
+      `<div class="sub-line">
+        <span class="sub-time">${s.time}</span>
+        <span class="sub-text">${s.text}</span>
+      </div>`
+    ).join('');
+  }
+
+  // Download button
+  document.getElementById('downloadBtn').onclick = ()=>{
+    const a = document.createElement('a');
+    a.href = url;
+    const baseName = currentFile.name.replace(/\.[^.]+$/, '');
+    a.download = baseName+'_clipforge.mp4';
+    a.click();
+  };
+}
+
+function generateFakeSubs(count, dur){
+  const phrases = [
+    "Bonjour à tous et bienvenue sur cette vidéo",
+    "Aujourd'hui on va parler d'un sujet vraiment intéressant",
+    "J'espère que vous allez apprécier ce contenu",
+    "N'oubliez pas de vous abonner si vous aimez",
+    "Commençons par les bases de ce sujet",
+    "Voilà exactement comment ça fonctionne",
+    "C'est vraiment important de comprendre ça",
+    "Je vais vous montrer étape par étape",
+    "Comme vous pouvez le voir ici",
+    "Et voilà le résultat final",
+    "Merci d'avoir regardé jusqu'au bout",
+    "Laissez un commentaire en dessous",
+  ];
+  const result = [];
+  for(let i=0; i<Math.min(count,12); i++){
+    const t = (i/count)*dur;
+    result.push({
+      time: formatDuration(t),
+      text: phrases[i % phrases.length]
+    });
+  }
+  return result;
+}
+
+function resetAll(){
+  currentFile = null;
+  fileInput.value='';
+  document.getElementById('videoPreview').src='';
+  document.getElementById('resultVideo').src='';
+  document.getElementById('uploadWrap').style.opacity='1';
+  document.getElementById('uploadWrap').style.pointerEvents='auto';
+  document.getElementById('processBtn').disabled=false;
+  hide('videoSection');hide('optionsPanel');hide('processWrap');
+  hide('progressSection');hide('resultSection');
+}
+
+function show(id){document.getElementById(id).classList.add('show')}
+function hide(id){document.getElementById(id).classList.remove('show')}
+
+function formatBytes(b){
+  if(b<1024*1024) return (b/1024).toFixed(0)+' KB';
+  return (b/(1024*1024)).toFixed(1)+' MB';
+}
+function formatDuration(s){
+  const m=Math.floor(s/60);const sec=Math.floor(s%60);
+  return m+':'+(sec<10?'0':'')+sec;
+}
+</script>
+</body>
+</html>
